@@ -1,105 +1,102 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
 import random
 import json
 import os
 
-HISTORY_FILE = 'history.json'
+FILE_NAME = "history.json"
 
-class QuoteGeneratorApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Random Quote Generator")
-        self.root.geometry("600x650")
-        self.root.configure(padx=10, pady=10)
+quotes = [
+    {"text": "Жизнь — это то, что с тобой происходит.", "author": "Джон Леннон", "theme": "Жизнь"},
+    {"text": "Я думаю, значит существую.", "author": "Декарт", "theme": "Философия"},
+    {"text": "Время — деньги.", "author": "Бенджамин Франклин", "theme": "Бизнес"},
+    {"text": "Сила в правде.", "author": "Неизвестно", "theme": "Мораль"},
+]
 
-        self.quotes_db = [
-            {"text": "Жизнь — это то, что происходит, пока вы строите другие планы.", "author": "Джон Леннон", "theme": "Жизнь"},
-            {"text": "Логика может привести вас от пункта А к пункту Б, а воображение — куда угодно.", "author": "Альберт Эйнштейн", "theme": "Наука"},
-            {"text": "Сложнейшее в любом деле — сделать первый шаг.", "author": "Марк Твен", "theme": "Мотивация"},
-            {"text": "Успех — это способность шагать от одной неудачи к другой, не теряя энтузиазма.", "author": "Уинстон Черчилль", "theme": "Успех"},
-            {"text": "Будьте тем изменением, которое вы хотите видеть в мире.", "author": "Махатма Ганди", "theme": "Жизнь"}
-        ]
-        
-        self.history = self.load_history()
+history = []
 
-        self.setup_ui()
-        self.update_history_listbox()
+def load_history():
+    global history
+    if os.path.exists(FILE_NAME):
+        with open(FILE_NAME, "r", encoding="utf-8") as f:
+            history = json.load(f)
+            update_history_list()
 
-    def setup_ui(self):
-        frame_top = tk.LabelFrame(self.root, text="Генерация цитаты", padx=10, pady=10)
-        frame_top.pack(fill="x", pady=5)
+def save_history():
+    with open(FILE_NAME, "w", encoding="utf-8") as f:
+        json.dump(history, f, ensure_ascii=False, indent=4)
 
-        tk.Label(frame_top, text="Фильтр по автору:").grid(row=0, column=0, sticky="w", pady=2)
-        self.author_filter = ttk.Combobox(frame_top, state="readonly", width=20)
-        self.author_filter.grid(row=0, column=1, padx=5, pady=2)
+def generate_quote():
+    quote = random.choice(quotes)
+    text = f"{quote['text']} — {quote['author']} ({quote['theme']})"
+    label.config(text=text)
+    history.append(quote)
+    update_history_list()
+    save_history()
 
-        tk.Label(frame_top, text="Фильтр по теме:").grid(row=1, column=0, sticky="w", pady=2)
-        self.theme_filter = ttk.Combobox(frame_top, state="readonly", width=20)
-        self.theme_filter.grid(row=1, column=1, padx=5, pady=2)
+def update_history_list(filtered=None):
+    listbox.delete(0, tk.END)
+    data = filtered if filtered else history
+    for q in data:
+        listbox.insert(tk.END, f"{q['text']} — {q['author']} ({q['theme']})")
 
-        self.update_filters()
+def filter_quotes():
+    author = author_entry.get().strip()
+    theme = theme_entry.get().strip()
+    filtered = []
+    for q in history:
+        if (not author or q["author"] == author) and (not theme or q["theme"] == theme):
+            filtered.append(q)
+    update_history_list(filtered)
 
-        btn_generate = tk.Button(frame_top, text="Сгенерировать цитату", command=self.generate_quote, bg="#e0e0e0")
-        btn_generate.grid(row=2, column=0, columnspan=2, pady=10, sticky="we")
+def add_quote():
+    text = text_entry.get().strip()
+    author = author_entry_add.get().strip()
+    theme = theme_entry_add.get().strip()
+    if not text or not author or not theme:
+        messagebox.showerror("Ошибка", "Заполните все поля!")
+        return
+    quotes.append({"text": text, "author": author, "theme": theme})
+    messagebox.showinfo("Успех", "Цитата добавлена!")
 
-        self.lbl_current_quote = tk.Label(frame_top, text="Нажмите кнопку, чтобы получить цитату", wraplength=550, font=("Arial", 11, "italic"), fg="blue", justify="center")
-        self.lbl_current_quote.grid(row=3, column=0, columnspan=2, pady=10)
+root = tk.Tk()
+root.title("Random Quote Generator")
+root.geometry("600x500")
 
-        frame_add = tk.LabelFrame(self.root, text="Добавить новую цитату", padx=10, pady=10)
-        frame_add.pack(fill="x", pady=5)
+label = tk.Label(root, text="Нажми кнопку", wraplength=500)
+label.pack(pady=10)
 
-        tk.Label(frame_add, text="Текст:").grid(row=0, column=0, sticky="w")
-        self.entry_text = tk.Entry(frame_add, width=60)
-        self.entry_text.grid(row=0, column=1, pady=2, padx=5)
+btn = tk.Button(root, text="Сгенерировать цитату", command=generate_quote)
+btn.pack(pady=10)
 
-        tk.Label(frame_add, text="Автор:").grid(row=1, column=0, sticky="w")
-        self.entry_author = tk.Entry(frame_add, width=60)
-        self.entry_author.grid(row=1, column=1, pady=2, padx=5)
+listbox = tk.Listbox(root, width=80)
+listbox.pack(pady=10)
 
-        tk.Label(frame_add, text="Тема:").grid(row=2, column=0, sticky="w")
-        self.entry_theme = tk.Entry(frame_add, width=60)
-        self.entry_theme.grid(row=2, column=1, pady=2, padx=5)
+tk.Label(root, text="Фильтр по автору").pack()
+author_entry = tk.Entry(root)
+author_entry.pack()
 
-        btn_add = tk.Button(frame_add, text="Добавить в базу", command=self.add_quote)
-        btn_add.grid(row=3, column=0, columnspan=2, pady=5)
+tk.Label(root, text="Фильтр по теме").pack()
+theme_entry = tk.Entry(root)
+theme_entry.pack()
 
-        frame_history = tk.LabelFrame(self.root, text="История сгенерированных цитат", padx=10, pady=10)
-        frame_history.pack(fill="both", expand=True, pady=5)
+filter_btn = tk.Button(root, text="Фильтровать", command=filter_quotes)
+filter_btn.pack(pady=5)
 
-        self.history_listbox = tk.Listbox(frame_history, width=80, height=10)
-        self.history_listbox.pack(side="left", fill="both", expand=True)
-        
-        scrollbar = tk.Scrollbar(frame_history, orient="vertical")
-        scrollbar.config(command=self.history_listbox.yview)
-        scrollbar.pack(side="right", fill="y")
-        self.history_listbox.config(yscrollcommand=scrollbar.set)
+tk.Label(root, text="Добавить новую цитату").pack(pady=10)
 
-    def update_filters(self):
-        authors = list(set([q["author"] for q in self.quotes_db]))
-        themes = list(set([q["theme"] for q in self.quotes_db]))
-        
-        self.author_filter['values'] = ["Все"] + authors
-        self.author_filter.current(0)
-        
-        self.theme_filter['values'] = ["Все"] + themes
-        self.theme_filter.current(0)
+text_entry = tk.Entry(root)
+text_entry.pack()
 
-    def generate_quote(self):
-        selected_author = self.author_filter.get()
-        selected_theme = self.theme_filter.get()
+author_entry_add = tk.Entry(root)
+author_entry_add.pack()
 
-        filtered_quotes = self.quotes_db
+theme_entry_add = tk.Entry(root)
+theme_entry_add.pack()
 
-        if selected_author != "Все":
-            filtered_quotes = [q for q in filtered_quotes if q["author"] == selected_author]
-        
-        if selected_theme != "Все":
-            filtered_quotes = [q for q in filtered_quotes if q["theme"] == selected_theme]
+add_btn = tk.Button(root, text="Добавить", command=add_quote)
+add_btn.pack(pady=5)
 
-        if not filtered_quotes:
-            messagebox.showinfo("Инфо", "По заданным фильтрам цитат не найдено.")
-            return
+load_history()
 
-        quote = random.choice(filtered_quotes)
-        display_text = f"«{quote['text']}»\
+root.mainloop()
